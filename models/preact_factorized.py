@@ -9,18 +9,56 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# class Factorized_Conv2d(nn.Module):
+    # #this variant actually does transposition and makes use of
+    # #included convolution functionality instead of rewriting it all
 
-class PreActSimple(nn.Module):
+    # def __init__(self, in_channels, out_channels, kernel_size , group_size, padding = 0, bias = False):
 
-    def __init__(self, planes,ratio):
+        # super().__init__()
+        # self.group_size = group_size
+
+        # self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding = padding, groups = in_channels/group_size, bias=bias)
+
+    # def reset_parameters(self):
+        # self.conv.reset_parameters()
+
+    # def forward(self,input):
+
+        # output = self.conv(input)
+
+        # #transpose along channels
+        # N, C, H, W = output.size()
+        # output = output.view(N, C/self.group_size, self.group_size, H, W)
+        # output.permute(0, 2, 1, 3, 4)
+        # output = output.view(N, C, H, W)
+
+        # return output
+
+
+
+def transpose_channels(x,group_size):
+        N, C, H, W = x.size()
+        x = x.view(N, C/group_size, group_size, H, W)
+        x.permute(0, 2, 1, 3, 4)
+        x = x.view(N, C, H, W)
+        return x
+
+
+
+class PreActFactorized(nn.Module):
+
+    def __init__(self, planes, group_size, ratio):
         super().__init__()
         self.bn = nn.BatchNorm2d(planes)
-        self.conv = nn.Conv2d(planes, planes, kernel_size = 3, stride=1, padding=1, bias=False)
+        self.conv = nn.Conv2d(planes, planes, 3, padding=1, groups = planes/group_size, bias=False)
         self.ratio = ratio
+        self.group_size = group_size
 
     def forward(self, x):
-        return x + self.conv(F.relu(self.bn(x)))/self.ratio
-        # return x + F.relu(self.bn(self.conv(x)))
+        x += self.conv(F.relu(self.bn(x)))/self.ratio
+        return transpose_channels(x,self.group_size)
+
 
 #one of these at the end of every group
 class Transition(nn.Module):
@@ -74,19 +112,6 @@ class SimpleResNet(nn.Module):
 
 # def PreActResNet18():
     # return PreActResNet(PreActBlock, [2,2,2,2])
-
-# def PreActResNet34():
-    # return PreActResNet(PreActBlock, [3,4,6,3])
-
-# def PreActResNet50():
-    # return PreActResNet(PreActBottleneck, [3,4,6,3])
-
-# def PreActResNet101():
-    # return PreActResNet(PreActBottleneck, [3,4,23,3])
-
-# def PreActResNet152():
-    # return PreActResNet(PreActBottleneck, [3,8,36,3])
-
 
 # def test():
     # net = PreActResNet18()
