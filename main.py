@@ -63,7 +63,7 @@ else:
     # net = VGG('VGG19')
     # net = ResNet18()
     # net = PreActResNet18()
-    net = FactorizedResNet([4,4,4,4],1)
+    net = FactorizedResNet([4,4,4,4],2)
     # net = GoogLeNet()
     # net = DenseNet121()
     # net = ResNeXt29_2x64d()

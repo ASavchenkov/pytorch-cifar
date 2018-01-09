@@ -4,6 +4,7 @@ Reference:
 [1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
     Identity Mappings in Deep Residual Networks. arXiv:1603.05027
 '''
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,20 +17,53 @@ def transpose_channels(x,groups):
     return x
 
 class PreActFactorized(nn.Module):
-
-    def __init__(self, planes, groups, ratio):
+    #ratio should be the square root of the number of layers
+    #(we generally only count the ones in this "sequence"
+    # since there's only ever like 4 sequences)
+    def __init__(self, planes, groups, external_layers, kernel_size = 3, padding = 1):
         super().__init__()
         self.bn = nn.BatchNorm2d(planes)
-        self.conv = nn.Conv2d(planes, planes, 3, padding=1, groups = groups, bias=False)
-        self.ratio = ratio
+        self.conv = nn.Conv2d(planes, planes, kernel_size, padding=padding, groups = groups, bias=False)
+        self.ratio = math.sqrt(external_layers/groups)*2
         self.groups = groups
 
     def forward(self, x):
-        x = x + self.conv(F.relu(self.bn(x)))/self.ratio
+        x = x + self.conv(F.relu(self.bn(x)))*self.ratio
         if self.groups==1:
             return x
         else:
             return transpose_channels(x,self.groups)
+
+'''
+    a residual group of factorized 1x1 convs with 3x1 and 1x3 depthwise included
+    a group size of 2 is assumed, but the depth between convolutions is not.
+    
+    ratio computation is rather involved. Basically, the scaling of the weights
+    should be 1/sqrt(number of inputs per neuron * number of residual layers total)
+    pytorch doesn't know this though, so it just takes 1/sqrt(number of total inputs)
+    
+    so we need to divide it's original computation out, multiply by 2
+    
+    It is important to use the same depth and grouping throughout the entire
+    network, since layers need to know the total layers used.
+'''
+class FactorizedModule(nn.Module):
+
+    def __init__(self, planes, depth, external_layers):
+        super().__init__()
+        total_layers = external_layers * depth
+        self.conv1 = nn.Sequential(*[PreActFactorized(planes,planes//2,total_layers, 1, 0) for i in range(depth//2)])
+        self.convH = PreActFactorized(planes,planes,total_layers,(3,1),(1,0))
+        self.conv2 = nn.Sequential(*[PreActFactorized(planes,planes//2,total_layers, 1, 0) for i in range(depth//2)])
+        self.convV = PreActFactorized(planes,planes,total_layers,(1,3),(0,1))
+        
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.convH(x)
+        x = self.conv2(x)
+        x = self.convV(x)
+        return x 
 
 #one of these at the end of every group
 #This is the closest we can get to a "Do nothing" layer
@@ -47,9 +81,9 @@ class Transition(nn.Module):
 
 
 class FactorizedResNet(nn.Module):
-    def __init__(self, num_blocks, groups, num_classes=10):
+    def __init__(self, num_blocks, group_size, num_classes=10):
         super().__init__()
-        self.groups = groups
+        self.group_size = group_size
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.group1 = self._make_sequence(64, num_blocks[0])
@@ -63,8 +97,11 @@ class FactorizedResNet(nn.Module):
 
         layers = []
         
+        # for i in range(num_blocks):
+            # layers.append(PreActFactorized(planes,planes//self.group_size,num_blocks))
+
         for i in range(num_blocks):
-            layers.append(PreActFactorized(planes,self.groups,num_blocks))
+            layers.append(FactorizedModule(planes,4,num_blocks))
 
         if transition:
             layers.append(Transition(planes))
