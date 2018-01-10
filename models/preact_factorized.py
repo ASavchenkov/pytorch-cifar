@@ -24,7 +24,8 @@ class PreActFactorized(nn.Module):
         super().__init__()
         self.bn = nn.BatchNorm2d(planes)
         self.conv = nn.Conv2d(planes, planes, kernel_size, padding=padding, groups = groups, bias=False)
-        self.ratio = math.sqrt(external_layers/groups)*2
+        print(groups)
+        self.ratio = math.sqrt(1/external_layers)
         self.groups = groups
 
     def forward(self, x):
@@ -38,14 +39,6 @@ class PreActFactorized(nn.Module):
     a residual group of factorized 1x1 convs with 3x1 and 1x3 depthwise included
     a group size of 2 is assumed, but the depth between convolutions is not.
     
-    ratio computation is rather involved. Basically, the scaling of the weights
-    should be 1/sqrt(number of inputs per neuron * number of residual layers total)
-    pytorch doesn't know this though, so it just takes 1/sqrt(number of total inputs)
-    
-    so we need to divide it's original computation out, multiply by 2
-    
-    It is important to use the same depth and grouping throughout the entire
-    network, since layers need to know the total layers used.
 '''
 class FactorizedModule(nn.Module):
 
@@ -56,7 +49,7 @@ class FactorizedModule(nn.Module):
         self.convH = PreActFactorized(planes,planes,total_layers,(3,1),(1,0))
         self.conv2 = nn.Sequential(*[PreActFactorized(planes,planes//2,total_layers, 1, 0) for i in range(depth//2)])
         self.convV = PreActFactorized(planes,planes,total_layers,(1,3),(0,1))
-        
+        print('finished module') 
 
     def forward(self, x):
         x = self.conv1(x)
@@ -74,6 +67,7 @@ class Transition(nn.Module):
         super().__init__()
         self.bn = nn.BatchNorm2d(planes)
         self.conv = nn.Conv2d(planes, planes, kernel_size = 3, stride=1, padding=1, groups=planes, bias=False)
+        print('transition')
 
     def forward(self, x):
         x = torch.cat((x,self.conv(F.relu(self.bn(x)))),dim=1) #double planes without breaking residuality
