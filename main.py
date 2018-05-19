@@ -62,8 +62,8 @@ else:
     print('==> Building model..')
     # net = VGG('VGG19')
     # net = ResNet18()
-    # net = PreActResNet18()
-    net = FactorizedResNet([4,4,4,4],2)
+    net = PreActResNet18()
+    # net = FactorizedResNet([4,4,4,4],2)
     # net = GoogLeNet()
     # net = DenseNet121()
     # net = ResNeXt29_2x64d()
@@ -79,6 +79,7 @@ if use_cuda:
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+scheduler = optim.lr_scheduler.MultiStepLR(optimizer,[50,100],0.1)
 
 # Training
 def train(epoch):
@@ -87,6 +88,7 @@ def train(epoch):
     train_loss = 0
     correct = 0
     total = 0
+    scheduler.step()
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -104,6 +106,7 @@ def train(epoch):
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+
 
 def test(epoch):
     global best_acc
