@@ -34,50 +34,48 @@ class Transition(nn.Module):
         out = F.avg_pool2d(out, 2)
         return out
 
+#this block structure just makes more sense from a memory perspective
+#it also does all of the concatenation too, so here's to hoping
+#pytorch is memory and compute efficient when it comes to cat.
 class Simple_Block(nn.Module):
     def __init__(self, in_planes, out_planes):
+        super(Simple_Block, self).__init__()
         self.selector = nn.Conv2d(in_planes, out_planes,1)
         self.bn1 = nn.BatchNorm2d(out_planes)
-        self.conv = nn.Conv2d(out_planes, out_planes,3)
+        self.conv = nn.Conv2d(out_planes, out_planes,3,padding=1)
         self.bn2 = nn.BatchNorm2d(out_planes)
     
     def forward(self, x):
-        selected = F.relu(self.bn(self.selector(x)))
-        out = F.relu(self.bn(self.conv(selected)))
+        selected = F.relu(self.bn1(self.selector(x)))
+        out = F.relu(self.bn2(self.conv(selected)))
+        out = torch.cat([out,x],1)
         return out
 
 #The Simple_DenseNet does not use any transition layers.
 class Simple_DenseNet(nn.Module):
-    def __init__(self, depth_list, growth_rate=12, num_classes=10):
-        super(DenseNet, self).__init__()
+    def __init__(self, nblocks, growth_rate=12, num_classes=10):
+        super(Simple_DenseNet, self).__init__()
         self.growth_rate = growth_rate
+        block = Simple_Block
 
         #n_blocks is a list of numbers
         
 
 
             
-
+        #this section really just makes our set well sized.
         num_planes = 2*growth_rate
-        self.conv1 = nn.Conv2d(3, num_planes, kernel_size=3, padding=1, bias=False)
+        self.setup_layer = block(3,num_planes-3)
 
         self.dense1 = self._make_dense_layers(block, num_planes, nblocks[0])
         num_planes += nblocks[0]*growth_rate
-        out_planes = int(math.floor(num_planes*reduction))
-        self.trans1 = Transition(num_planes, out_planes)
-        num_planes = out_planes
+
 
         self.dense2 = self._make_dense_layers(block, num_planes, nblocks[1])
         num_planes += nblocks[1]*growth_rate
-        out_planes = int(math.floor(num_planes*reduction))
-        self.trans2 = Transition(num_planes, out_planes)
-        num_planes = out_planes
 
         self.dense3 = self._make_dense_layers(block, num_planes, nblocks[2])
         num_planes += nblocks[2]*growth_rate
-        out_planes = int(math.floor(num_planes*reduction))
-        self.trans3 = Transition(num_planes, out_planes)
-        num_planes = out_planes
 
         self.dense4 = self._make_dense_layers(block, num_planes, nblocks[3])
         num_planes += nblocks[3]*growth_rate
@@ -93,10 +91,11 @@ class Simple_DenseNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        out = self.conv1(x)
-        out = self.trans1(self.dense1(out))
-        out = self.trans2(self.dense2(out))
-        out = self.trans3(self.dense3(out))
+        out = self.setup_layer(x)
+
+        out = F.max_pool2d(self.dense1(out),2)
+        out = F.max_pool2d(self.dense2(out),2)
+        out = F.max_pool2d(self.dense3(out),2)
         out = self.dense4(out)
         out = F.avg_pool2d(F.relu(self.bn(out)), 4)
         out = out.view(out.size(0), -1)

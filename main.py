@@ -62,7 +62,7 @@ else:
     print('==> Building model..')
     # net = VGG('VGG19')
     # net = ResNet18()
-    net = PreActResNet18()
+    # net = PreActResNet18()
     # net = FactorizedResNet([4,4,4,4],2)
     # net = GoogLeNet()
     # net = DenseNet121()
@@ -71,6 +71,7 @@ else:
     # net = DPN92()
     # net = ShuffleNetG2()
     # net = SENet18()
+    net = Simple_DenseNet([12,12,12,12])
 
 if use_cuda:
     net.cuda()
