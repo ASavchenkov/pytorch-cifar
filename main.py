@@ -93,12 +93,12 @@ def save_list(param_list,name):
     pickle.dump(params_np, open(name,'wb'))
     print('saved to:',name)
 
-folder_name = 'no_reg/'
+folder_name = '001_reg/'
 if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 # Training
 def train(epoch):
-    save_list(selectors,folder_name+str(epoch))
+    save_list(selectors,folder_name+str(epoch).zfill(3))
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -113,7 +113,7 @@ def train(epoch):
         outputs = net(inputs)
 
         loss = criterion(outputs, targets) 
-        omega = 0
+        omega = 0.001
         l1_loss = l1_penalty(selectors)
         loss += omega * l1_loss
 
