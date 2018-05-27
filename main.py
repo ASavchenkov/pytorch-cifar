@@ -72,6 +72,7 @@ else:
     # net = ShuffleNetG2()
     # net = SENet18()
     net = Simple_DenseNet([12,12,12,12])
+    selectors = net.get_selector_params()
 
 if use_cuda:
     net.cuda()
@@ -82,6 +83,9 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer,[50,100],0.1)
 
+def l1_penalty(param_list):
+    return  sum( [torch.abs(p).sum() for p in param_list]  )
+    
 # Training
 def train(epoch):
     print('\nEpoch: %d' % epoch)
@@ -96,7 +100,12 @@ def train(epoch):
         optimizer.zero_grad()
         inputs, targets = Variable(inputs), Variable(targets)
         outputs = net(inputs)
-        loss = criterion(outputs, targets)
+
+        loss = criterion(outputs, targets) 
+        omega = 0.001
+        l1_loss = l1_penalty(selectors)
+        loss += omega * l1_loss
+
         loss.backward()
         optimizer.step()
 
@@ -105,8 +114,8 @@ def train(epoch):
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum()
 
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f L1_Loss: %.3f| Acc: %.3f%% (%d/%d)'
+            % (train_loss/(batch_idx+1),l1_loss, 100.*correct/total, correct, total))
 
 
 def test(epoch):

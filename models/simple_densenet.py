@@ -66,7 +66,7 @@ class Simple_DenseNet(nn.Module):
         #this section really just makes our set well sized.
         num_planes = 2*growth_rate
         self.setup_layer = block(3,num_planes-3)
-
+        
         self.dense1 = self._make_dense_layers(block, num_planes, nblocks[0])
         num_planes += nblocks[0]*growth_rate
 
@@ -89,6 +89,17 @@ class Simple_DenseNet(nn.Module):
             layers.append(block(in_planes, self.growth_rate))
             in_planes += self.growth_rate
         return nn.Sequential(*layers)
+    
+    #this allows us to selectively l1 regularize selectors
+    def get_selector_params(self):
+        selectors = list()
+        selectors.extend(self.setup_layer.selector.parameters())
+
+        for block in [self.dense1,self.dense2, self.dense3,self.dense4]:
+            for layer in block:
+                selectors.extend(layer.selector.parameters())
+
+        return selectors
 
     def forward(self, x):
         out = self.setup_layer(x)
