@@ -17,6 +17,8 @@ from models import *
 from utils import progress_bar
 from torch.autograd import Variable
 
+import pickle
+import os
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -86,8 +88,17 @@ scheduler = optim.lr_scheduler.MultiStepLR(optimizer,[50,100],0.1)
 def l1_penalty(param_list):
     return  sum( [torch.abs(p).sum() for p in param_list]  )
     
+def save_list(param_list,name):
+    params_np = [p.detach().cpu().numpy() for p in param_list]
+    pickle.dump(params_np, open(name,'wb'))
+    print('saved to:',name)
+
+folder_name = 'no_reg/'
+if not os.path.exists(folder_name):
+    os.makedirs(folder_name)
 # Training
 def train(epoch):
+    save_list(selectors,folder_name+str(epoch))
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -102,7 +113,7 @@ def train(epoch):
         outputs = net(inputs)
 
         loss = criterion(outputs, targets) 
-        omega = 0.001
+        omega = 0
         l1_loss = l1_penalty(selectors)
         loss += omega * l1_loss
 
