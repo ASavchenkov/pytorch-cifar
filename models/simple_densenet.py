@@ -90,14 +90,14 @@ class Simple_DenseNet(nn.Module):
             in_planes += self.growth_rate
         return nn.Sequential(*layers)
     
-    #this allows us to selectively l1 regularize selectors
+    #this allows us to selectively l1 regularize selectors (except for biases)
     def get_selector_params(self):
         selectors = list()
-        selectors.extend(self.setup_layer.selector.parameters())
+        selectors.append(self.setup_layer.selector.weight)
 
         for block in [self.dense1,self.dense2, self.dense3,self.dense4]:
             for layer in block:
-                selectors.extend(layer.selector.parameters())
+                selectors.append(layer.selector.weight)
 
         return selectors
 

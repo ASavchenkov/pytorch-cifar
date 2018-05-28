@@ -85,15 +85,21 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer,[50,100],0.1)
 
+#standard l1_regularization
 def l1_penalty(param_list):
     return  sum( [torch.abs(p).sum() for p in param_list]  )
-    
+
+#this enforces sparsity over a single dimension
+def l2_l1_penalty(param_list):
+    l1_norms = [torch.abs(p).sum(1) for p in param_list]
+    return sum((norm**2).sum() for norm in l1_norms)
+
 def save_list(param_list,name):
     params_np = [p.detach().cpu().numpy() for p in param_list]
     pickle.dump(params_np, open(name,'wb'))
     print('saved to:',name)
 
-folder_name = '001_reg/'
+folder_name = 'l2_l1_reg/'
 if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 # Training
@@ -114,8 +120,9 @@ def train(epoch):
 
         loss = criterion(outputs, targets) 
         omega = 0.001
-        l1_loss = l1_penalty(selectors)
-        loss += omega * l1_loss
+        # reg_loss = l1_penalty(selectors)
+        reg_loss = l2_l1_penalty(selectors)
+        loss += omega * reg_loss
 
         loss.backward()
         optimizer.step()
@@ -126,7 +133,7 @@ def train(epoch):
         correct += predicted.eq(targets.data).cpu().sum()
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f L1_Loss: %.3f| Acc: %.3f%% (%d/%d)'
-            % (train_loss/(batch_idx+1),l1_loss, 100.*correct/total, correct, total))
+            % (train_loss/(batch_idx+1),reg_loss, 100.*correct/total, correct, total))
 
 
 def test(epoch):
