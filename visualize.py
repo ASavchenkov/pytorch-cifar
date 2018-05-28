@@ -5,22 +5,22 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 
-selectors = pickle.load( open( '001_reg/013', 'rb' ) )
+selectors = pickle.load( open( 'l2_l1_reg/030', 'rb' ) )
 
 #we throw out the biases because they're not important for pruning
 weights = [s for s in selectors if len(s.shape)==4]
 
-shaped_weights = [w.reshape((w.shape[0],w.shape[1])) for w in weights]
-abs_weights = [np.abs(w) for w in shaped_weights]
-normalized_weights = [w/np.std(w) for w in abs_weights]
+weights = [w.reshape((w.shape[0],w.shape[1])) for w in weights]
+weights = [np.abs(w) for w in weights]
+weights = [w/np.std(w) for w in weights]
 
 max_width = 600
 
 
-padded_weights = [np.pad(w,((0,0),(0,600-w.shape[1])),'constant',constant_values=0) for w in normalized_weights]
+weights = [np.pad(w,((0,0),(0,600-w.shape[1])),'constant',constant_values=-1) for w in weights]
 
-concatenated = np.concatenate(padded_weights,axis=0)
-print(concatenated.shape)
+weights = np.concatenate(weights,axis=0)
+print(weights.shape)
 
-imgplot = plt.imshow(concatenated)
+imgplot = plt.imshow(weights)
 plt.show()
