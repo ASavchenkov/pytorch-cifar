@@ -48,7 +48,7 @@ class Simple_Block(nn.Module):
     def forward(self, x):
         selected = F.relu(self.bn1(self.selector(x)))
         out = F.relu(self.bn2(self.conv(selected)))
-        out = torch.cat([out,x],1)
+        out = torch.cat([x,out],1)
         return out
 
 #The Simple_DenseNet does not use any transition layers.
